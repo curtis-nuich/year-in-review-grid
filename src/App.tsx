@@ -1,57 +1,12 @@
 import { useState, useRef, ChangeEvent } from "react";
-import { Search, Plus, X, Clipboard, Crown } from "lucide-react";
-import { debounce } from "lodash";
-import html2canvas from "html2canvas";
-
-interface Cell {
-  image: string | null;
-  imageBase64: string | null;
-  title: string;
-  label: string;
-}
-
-interface AnimeResult {
-  id: number;
-  title: string;
-  image: string;
-}
-
-interface AniListResponse {
-  data: {
-    Page: {
-      media: Array<{
-        id: number;
-        title: {
-          romaji: string;
-          english: string | null;
-        };
-        coverImage: {
-          large: string;
-        };
-      }>;
-    };
-  };
-}
-
-interface ToastProps {
-  message: string;
-  isVisible: boolean;
-  onClose: () => void;
-}
-
-const Toast = ({ message, isVisible, onClose }: ToastProps) => {
-  if (!isVisible) return null;
-  return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg flex items-center gap-2">
-      {message}
-      <button onClick={onClose}>
-        <X size={16} />
-      </button>
-    </div>
-  );
-};
+import { Search, Plus, X, Clipboard, Download } from "lucide-react";
+import { AniListResponse, AnimeResult, Cell } from "./types";
+import { Toast } from "./Toast";
+import { captureGrid } from "./captureGrid";
 
 const App = () => {
+  const [username, setUsername] = useState<string>("");
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState<boolean>(true);
   const [gridSize, setGridSize] = useState<3 | 4>(3);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [searchResults, setSearchResults] = useState<AnimeResult[]>([]);
@@ -75,12 +30,13 @@ const App = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showToast, setShowToast] = useState(false);
   const [customLabel, setCustomLabel] = useState("");
+  const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   const defaultLabels: string[] = [
     "Best Anime",
     "Worst Anime",
-    "Best Opening",
-    "Best Ending",
+    "Best OP",
+    "Best ED",
     "Most Underrated",
     "Best Animation",
     "Best Story",
@@ -198,10 +154,12 @@ const App = () => {
   const searchAnime = async (term: string): Promise<void> => {
     if (!term) {
       setSearchResults([]);
+      setHasSearched(false);
       return;
     }
 
     setIsLoading(true);
+    setHasSearched(true);
     try {
       const query = `
         query ($search: String) {
@@ -246,56 +204,70 @@ const App = () => {
     setIsLoading(false);
   };
 
-  const debouncedSearch = debounce((term: string) => {
-    if (term.length >= 2) {
-      searchAnime(term);
-    }
-  }, 700);
-
   const handleShare = async (): Promise<void> => {
     try {
       if (contentRef.current) {
-        const canvas = await html2canvas(contentRef.current, {
-          backgroundColor: "rgb(15 23 42)", // slate-900
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          onclone: (clonedDoc) => {
-            // Fix label transforms
-            const labels = clonedDoc.getElementsByClassName("grid-label");
-            Array.from(labels).forEach((label: Element) => {
-              if (label instanceof HTMLElement) {
-                label.style.transform = "none";
-                label.style.webkitTransform = "none";
-              }
-            });
-          },
-        });
+        const blob = await captureGrid(contentRef, cells, gridSize, username);
 
-        canvas.toBlob(async (blob) => {
-          if (blob) {
-            try {
-              const data = new ClipboardItem({ "image/png": blob });
-              await navigator.clipboard.write([data]);
-              setShowToast(true);
-              setTimeout(() => setShowToast(false), 3000);
-            } catch (err) {
-              console.error("Failed to copy to clipboard:", err);
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "anime-grid.png";
-              a.click();
-              URL.revokeObjectURL(url);
-            }
-          }
-        });
+        try {
+          // Try to copy to clipboard
+          const data = new ClipboardItem({ "image/png": blob });
+          await navigator.clipboard.write([data]);
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
+        } catch (err) {
+          // Fallback to download if clipboard fails
+          console.error("Failed to copy to clipboard:", err);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "anime-grid.png";
+          a.click();
+          URL.revokeObjectURL(url);
+        }
       }
     } catch (error) {
       console.error("Error generating image:", error);
     }
   };
+
+  if (showUsernamePrompt) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
+        <div className="bg-slate-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+          <h2 className="text-2xl font-bold mb-4 text-center">Welcome!</h2>
+          <p className="text-slate-400 mb-4 text-center">
+            Enter your name (or discord username!) to show the world who's year
+            in review it is!
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (username.trim()) {
+                setShowUsernamePrompt(false);
+              }
+            }}
+            className="space-y-4"
+          >
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-md focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              placeholder="Enter username"
+              required
+            />
+            <button
+              type="submit"
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Continue
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -362,28 +334,46 @@ const App = () => {
                     opacity: selectedCell === null ? 0.5 : 1,
                   }}
                 >
-                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-slate-400" />
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchTerm}
+                        onClick={(e) => {
+                          const target = e.target as HTMLInputElement;
+                          target.select();
+                        }}
+                        onChange={(e) => {
+                          setSearchTerm(e.target.value);
+                          if (!e.target.value) {
+                            setHasSearched(false);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            searchAnime(searchTerm);
+                          }
+                        }}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-900 rounded-md focus:ring-2 focus:ring-blue-600 focus:outline-none text-white placeholder-slate-400"
+                        placeholder={
+                          selectedCell === null
+                            ? "Select a grid cell first..."
+                            : "Search for anime..."
+                        }
+                      />
+                    </div>
+                    <button
+                      onClick={() => searchAnime(searchTerm)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <Search className="h-4 w-4" />
+                      Search
+                    </button>
                   </div>
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onClick={(e) => {
-                      const target = e.target as HTMLInputElement;
-                      target.select();
-                    }}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      debouncedSearch(e.target.value);
-                    }}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-900 rounded-md focus:ring-2 focus:ring-blue-600 focus:outline-none text-white placeholder-slate-400"
-                    placeholder={
-                      selectedCell === null
-                        ? "Select a grid cell first..."
-                        : "Search for anime..."
-                    }
-                  />
-                  {searchTerm && (
+                  {searchTerm && hasSearched && (
                     <div className="absolute w-full mt-2 bg-slate-800 border border-slate-900 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
                       {isLoading ? (
                         <div className="p-4 text-slate-400">Searching...</div>
@@ -549,7 +539,7 @@ const App = () => {
           <div ref={gridRef} className="w-full max-w-2xl mx-auto">
             <div ref={contentRef}>
               <h1 className="text-4xl md:text-5xl text-center font-bold text-blue-400 mb-6 tracking-wide">
-                ANIME IN REVIEW 2024
+                {username ? `${username}'s ` : ""}Year in Review
               </h1>
 
               <div
@@ -563,12 +553,12 @@ const App = () => {
                     key={index}
                     onClick={() => handleCellClick(index)}
                     className={`aspect-square bg-slate-800 rounded-lg relative overflow-hidden hover:ring-2 hover:ring-blue-600 transition-all cursor-pointer
-                      ${selectedCell === index ? "ring-2 ring-blue-600" : ""}
-                      ${
-                        cell.label === "Best Anime"
-                          ? "ring-4 ring-yellow-500/50"
-                          : ""
-                      }`}
+                    ${selectedCell === index ? "ring-2 ring-blue-600" : ""}
+                    ${
+                      cell.label === "Best Anime"
+                        ? "ring-4 ring-yellow-500"
+                        : ""
+                    }`}
                   >
                     {cell.image ? (
                       <>
@@ -595,9 +585,6 @@ const App = () => {
                           <div className="pointer-events-auto">
                             <div className="grid-label bg-blue-600/80 text-sm px-2 py-1 rounded inline-flex items-center gap-1 mb-2">
                               {cell.label || "Add label"}
-                              {cell.label === "Best Anime" && (
-                                <Crown size={14} className="text-yellow-400" />
-                              )}
                             </div>
                             <div className="text-sm font-semibold line-clamp-2 bg-slate-900/70 px-2 py-1 rounded">
                               {cell.title}
@@ -616,13 +603,39 @@ const App = () => {
             </div>
 
             {/* Share Button */}
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-4">
               <button
                 onClick={handleShare}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
               >
                 <Clipboard className="h-5 w-5" />
                 Copy to Clipboard
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    if (contentRef.current) {
+                      const blob = await captureGrid(
+                        contentRef,
+                        cells,
+                        gridSize,
+                        username
+                      );
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "year-in-review.png";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }
+                  } catch (error) {
+                    console.error("Error saving image:", error);
+                  }
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+              >
+                <Download className="h-5 w-5" />
+                Save as Image
               </button>
             </div>
           </div>
