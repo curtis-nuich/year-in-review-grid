@@ -49,6 +49,7 @@ const App = () => {
     "Best Villain",
     "Best Comedy",
     "Best Romance",
+    "Best Romance",
   ];
 
   const convertImageToBase64 = async (url: string): Promise<string> => {
