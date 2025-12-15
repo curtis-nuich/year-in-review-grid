@@ -1,8 +1,12 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import vue from "@vitejs/plugin-vue";
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
   base: "/year-in-review-grid/",
-  plugins: [react()],
+  plugins: [vue()],
+  build: {
+    outDir: "dist",
+    assetsDir: "assets",
+  },
 });
