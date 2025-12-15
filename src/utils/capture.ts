@@ -52,11 +52,7 @@ export async function captureGridAsImage(
 
   ctx.scale(SCALE, SCALE);
 
-  const bgGradient = ctx.createLinearGradient(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
-  bgGradient.addColorStop(0, "#0a0a0a");
-  bgGradient.addColorStop(0.5, "#0f172a");
-  bgGradient.addColorStop(1, "#0a1628");
-  ctx.fillStyle = bgGradient;
+  ctx.fillStyle = "#fafafa";
   ctx.fillRect(0, 0, TOTAL_WIDTH, TOTAL_HEIGHT);
 
   ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
@@ -71,9 +67,9 @@ export async function captureGridAsImage(
     titleX + 200,
     titleY
   );
-  titleGradient.addColorStop(0, "#5eead4");
-  titleGradient.addColorStop(0.5, "#60a5fa");
-  titleGradient.addColorStop(1, "#5eead4");
+  titleGradient.addColorStop(0, "#0f766e");
+  titleGradient.addColorStop(0.5, "#2563eb");
+  titleGradient.addColorStop(1, "#0f766e");
   ctx.fillStyle = titleGradient;
   ctx.fillText(titleText, titleX, titleY);
 
@@ -86,15 +82,15 @@ export async function captureGridAsImage(
     const x = LEFT_MARGIN + col * (CELL_SIZE + GRID_GAP);
     const y = titleHeight + row * (CELL_SIZE + GRID_GAP);
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.strokeStyle = "rgba(229, 231, 235, 1)";
     ctx.lineWidth = 1;
     roundRect(ctx, x, y, CELL_SIZE, CELL_SIZE, 12);
     ctx.fill();
     ctx.stroke();
 
     if (cell.label === "Best Anime") {
-      ctx.strokeStyle = "#fbbf24";
+      ctx.strokeStyle = "#eab308";
       ctx.lineWidth = 4;
       roundRect(ctx, x - 2, y - 2, CELL_SIZE + 4, CELL_SIZE + 4, 14);
       ctx.stroke();
@@ -185,12 +181,12 @@ export async function captureGridAsImage(
           CELL_SIZE - 32
         );
 
-        ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
         ctx.beginPath();
         roundRect(ctx, x + 16, titleY, titleWidth, 24, 8);
         ctx.fill();
 
-        ctx.fillStyle = "white";
+        ctx.fillStyle = "#1f2937";
         ctx.textAlign = "left";
         ctx.fillText(cellTitleText, x + 26, titleY + 16);
       } catch (error) {
@@ -201,10 +197,10 @@ export async function captureGridAsImage(
 
   const footerY = TOTAL_HEIGHT - 24;
 
-  ctx.fillStyle = "#94a3b8";
+  ctx.fillStyle = "#6b7280";
   ctx.font = "12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("Made by @Pesto808", 12 + 24 + 8, footerY + 16);
+  ctx.fillText("Made by @Pesto808", 12, footerY + 16);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
