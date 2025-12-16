@@ -139,18 +139,21 @@ export async function captureGridAsImage(
         ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
         ctx.restore();
 
-        // Render label with smaller font (text-xs = 12px)
+        // Draw label if exists
         if (cell.label) {
-          const labelY = y + CELL_SIZE - 58; // Adjusted positioning
-          ctx.font = "600 12px system-ui, -apple-system, sans-serif"; // Smaller font
-          const labelMetrics = ctx.measureText(cell.label);
-          const labelPadding = 16; // Reduced padding
-          const labelWidth = labelMetrics.width + labelPadding;
-          const labelHeight = 20; // Smaller height
+          const labelY = y + CELL_SIZE - 50;
+          const labelFontSize = 9;
+          ctx.font = `600 ${labelFontSize}px system-ui, -apple-system, sans-serif`;
+          ctx.fillStyle = "white";
 
-          ctx.fillStyle = "#14b8a6"; // Primary-600 color
+          const labelMetrics = ctx.measureText(cell.label);
+          const labelPadding = 16;
+          const labelWidth = labelMetrics.width + labelPadding;
+          const labelHeight = 18;
+
+          ctx.fillStyle = "#14b8a6";
           ctx.beginPath();
-          roundRect(ctx, x + 12, labelY, labelWidth, labelHeight, 10);
+          roundRect(ctx, x + 12, labelY, labelWidth, labelHeight, 9);
           ctx.fill();
 
           ctx.fillStyle = "white";
@@ -163,84 +166,39 @@ export async function captureGridAsImage(
           );
         }
 
-        // Render title with text wrapping (text-sm = 14px, line-clamp-2)
-        const titleY = y + CELL_SIZE - 30; // Adjusted positioning
-        ctx.font = "600 13px system-ui, -apple-system, sans-serif"; // Slightly smaller for better fit
+        // Draw title
+        const titleY = y + CELL_SIZE - 24;
+        const titleFontSize = 9;
+        ctx.font = `600 ${titleFontSize}px system-ui, -apple-system, sans-serif`;
 
-        const maxTitleWidth = CELL_SIZE - 32; // Max width for title box
-        const titlePadding = 12;
+        const maxWidth = CELL_SIZE - 32;
+        let cellTitleText = cell.title;
+        let cellTitleMetrics = ctx.measureText(cellTitleText);
 
-        // Word wrap the title to max 2 lines
-        const words = cell.title.split(" ");
-        const lines: string[] = [];
-        let currentLine = "";
-
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word;
-          const metrics = ctx.measureText(testLine);
-
-          if (metrics.width > maxTitleWidth - titlePadding && currentLine) {
-            lines.push(currentLine);
-            currentLine = word;
-            if (lines.length >= 2) break; // Max 2 lines
-          } else {
-            currentLine = testLine;
-          }
+        // Truncate text if too long
+        while (cellTitleMetrics.width > maxWidth && cellTitleText.length > 3) {
+          cellTitleText = cellTitleText.slice(0, -1);
+          cellTitleMetrics = ctx.measureText(cellTitleText + "...");
+        }
+        if (cellTitleMetrics.width > maxWidth) {
+          cellTitleText += "...";
         }
 
-        if (currentLine && lines.length < 2) {
-          lines.push(currentLine);
-        }
-
-        // If still overflowing, add ellipsis
-        if (lines.length === 2) {
-          const lastLine = lines[1];
-          let testText = lastLine;
-          const maxWidth = maxTitleWidth - titlePadding;
-
-          while (
-            ctx.measureText(testText + "...").width > maxWidth &&
-            testText.length > 0
-          ) {
-            testText = testText.slice(0, -1);
-          }
-
-          if (testText.length < lastLine.length) {
-            lines[1] = testText + "...";
-          }
-        }
-
-        const lineHeight = 16;
-        const titleBoxHeight = Math.max(24, lines.length * lineHeight + 8);
-        const titleBoxWidth = Math.min(
-          Math.max(...lines.map((line) => ctx.measureText(line).width)) +
-            titlePadding,
-          maxTitleWidth
+        const titleWidth = Math.min(
+          ctx.measureText(cellTitleText).width + 16,
+          maxWidth + 8
         );
+        const titleHeight = 18;
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
         ctx.beginPath();
-        roundRect(
-          ctx,
-          x + 12,
-          titleY - titleBoxHeight + 4,
-          titleBoxWidth,
-          titleBoxHeight,
-          8
-        );
+        roundRect(ctx, x + 12, titleY, titleWidth, titleHeight, 6);
         ctx.fill();
 
         ctx.fillStyle = "#1f2937";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-
-        lines.forEach((line, index) => {
-          ctx.fillText(
-            line,
-            x + 12 + titlePadding / 2,
-            titleY - titleBoxHeight + 12 + index * lineHeight
-          );
-        });
+        ctx.fillText(cellTitleText, x + 12 + 8, titleY + titleHeight / 2);
       } catch (error) {
         console.error("Failed to load image for cell:", error);
       }
@@ -252,6 +210,7 @@ export async function captureGridAsImage(
   ctx.fillStyle = "#6b7280";
   ctx.font = "12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   ctx.fillText("Made by @Pesto808", 12, footerY + 16);
 
   return new Promise((resolve, reject) => {
